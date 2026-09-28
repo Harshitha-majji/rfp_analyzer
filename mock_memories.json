@@ -1,0 +1,24 @@
+{
+  "memories": [
+    {
+      "content": "A previous university management system proposal was successful when it clearly separated student, faculty, attendance, and administration modules.",
+      "outcome": "WON",
+      "relevance": "Similar campus management project"
+    },
+    {
+      "content": "A previous education-sector proposal was rejected because the implementation timeline was considered unrealistic.",
+      "outcome": "LOST",
+      "relevance": "Similar education software project"
+    },
+    {
+      "content": "A previous proposal for a system supporting more than 5,000 users emphasized scalability testing, database optimization, and load testing.",
+      "outcome": "WON",
+      "relevance": "Similar scalability requirement"
+    },
+    {
+      "content": "A previous proposal received positive feedback for providing a detailed security section covering RBAC, HTTPS, password security, and input validation.",
+      "outcome": "WON",
+      "relevance": "Similar security requirements"
+    }
+  ]
+}

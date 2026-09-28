@@ -1,0 +1,18 @@
+RFP TITLE: Cloud Migration Solution
+
+CLIENT: ABC Corporation
+
+ABC Corporation is requesting a cloud migration solution.
+
+The proposal should provide competitive and clearly justified pricing.
+
+The implementation timeline should be short.
+
+The proposal should explain:
+
+1. The migration approach
+2. The implementation plan
+3. Expected outcomes
+
+The solution should clearly explain how the proposed approach addresses
+the client's requirements.

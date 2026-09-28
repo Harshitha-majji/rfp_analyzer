@@ -1,17 +1,48 @@
 import os
+
 from dotenv import load_dotenv
-from google import genai
+from openai import OpenAI
+
+
+# ---------------------------------------------------------
+# Load environment variables
+# ---------------------------------------------------------
 
 load_dotenv()
 
-api_key=os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("OPENROUTER_API_KEY")
 
-client=genai.Client(api_key=api_key)
+if not api_key:
+    raise ValueError(
+        "OPENROUTER_API_KEY is missing. "
+        "Please check your .env file."
+    )
 
+
+# ---------------------------------------------------------
+# OpenRouter client
+# ---------------------------------------------------------
+
+client = OpenAI(
+    api_key=api_key,
+    base_url="https://openrouter.ai/api/v1"
+)
+
+
+# ---------------------------------------------------------
+# Model
+# ---------------------------------------------------------
+
+MODEL_NAME = "openai/gpt-4o-mini"
+
+
+# ---------------------------------------------------------
+# Analyze RFP
+# ---------------------------------------------------------
 
 def analyze_rfp(rfp_text):
 
-    prompt=f"""
+    prompt = f"""
 You are an RFP Analyzer.
 
 Analyze the following RFP document carefully.
@@ -34,14 +65,23 @@ If information is not present in the RFP, write "Not specified".
 
 Do not invent information.
 
+Return the analysis in a clear, structured format.
+
 RFP DOCUMENT:
 
 {rfp_text}
 """
 
-    response=client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=prompt
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0.2
     )
 
-    return response.text
+    return response.choices[0].message.content
+
