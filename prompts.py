@@ -41,3 +41,64 @@ RFP ANALYSIS:
 
 {rfp_analysis}
 """
+
+
+RECOMMENDATION_PROMPT = """
+You are the AI Orchestrator for a Proposal and RFP Agent.
+
+You have:
+1. A current RFP analysis.
+2. Memories retrieved from previous organizational experience.
+
+Analyze the memories against the current RFP.
+
+Identify useful lessons that can improve the new proposal.
+
+Pay attention to:
+
+- previous successful approaches
+- previous unsuccessful approaches
+- similar projects
+- technical approaches
+- security requirements
+- scalability requirements
+- timeline risks
+- budget considerations
+- proposal structure
+- deliverables
+- evaluation criteria
+
+Do not invent facts.
+
+Return ONLY valid JSON using this structure:
+
+{{
+  "lessons": [
+    {{
+      "lesson": "...",
+      "source_memory": "...",
+      "outcome": "WON/LOST/UNKNOWN"
+    }}
+  ],
+  "recommendations": [
+    {{
+      "recommendation": "...",
+      "reason": "..."
+    }}
+  ],
+  "risks": [
+    {{
+      "risk": "...",
+      "mitigation": "..."
+    }}
+  ]
+}}
+
+CURRENT RFP:
+
+{rfp_analysis}
+
+RETRIEVED MEMORIES:
+
+{memories}
+"""
