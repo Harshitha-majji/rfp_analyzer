@@ -3,6 +3,7 @@ import streamlit as st
 from pdf_processor import extract_text
 from rfp_analyzer import analyze_rfp
 from agent import generate_memory_queries, generate_recommendations
+from proposal_generator import generate_proposal
 from app.memory import ProposalMemory
 
 
@@ -100,3 +101,23 @@ if pdf_file:
         st.subheader("Recommendations")
 
         st.json(recommendations)
+        # ---------------------------------------
+        # STEP 5: Generate final proposal
+        # ---------------------------------------
+
+        with st.spinner("Generating final proposal..."):
+
+            proposal_result = generate_proposal(
+                result,
+                all_memories,
+                lambda prompt: __import__("agent").call_openrouter(prompt)
+            )
+
+        st.subheader("Generated Proposal")
+
+        st.write(proposal_result["proposal"])
+
+        st.caption(
+            f"Historical memories used: "
+            f"{proposal_result['memory_count']}"
+        )
