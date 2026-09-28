@@ -1,6 +1,7 @@
 import json
 
 from agent import generate_memory_queries, generate_recommendations
+from memory_client import retrieve_memories
 
 
 rfp_analysis = """
@@ -41,14 +42,6 @@ source code handover.
 
 
 # ---------------------------------------------------------
-# Load mock organizational memories
-# ---------------------------------------------------------
-
-with open("mock_memories.json", "r", encoding="utf-8") as file:
-    memories = json.load(file)
-
-
-# ---------------------------------------------------------
 # STEP 1 — Generate memory queries
 # ---------------------------------------------------------
 
@@ -61,14 +54,38 @@ for i, query in enumerate(queries, start=1):
 
 
 # ---------------------------------------------------------
-# STEP 2 — Analyze retrieved memories
+# STEP 2 — Retrieve memories from Hindsight
 # ---------------------------------------------------------
 
-print("\nSTEP 2 — MEMORY ANALYSIS\n")
+print("\nSTEP 2 — HINDSIGHT MEMORIES\n")
+
+memories = retrieve_memories(queries)
+
+print(f"Retrieved {len(memories)} memories.")
+
+for memory in memories:
+    print(
+        f"\nQuery: {memory['query']}\n"
+        f"Type: {memory['type']}\n"
+        f"Text: {memory['text']}"
+    )
+
+
+# ---------------------------------------------------------
+# STEP 3 — Analyze memories
+# ---------------------------------------------------------
+
+print("\nSTEP 3 — MEMORY ANALYSIS\n")
 
 recommendations = generate_recommendations(
     rfp_analysis,
     memories
 )
 
-print(json.dumps(recommendations, indent=2, ensure_ascii=False))
+print(
+    json.dumps(
+        recommendations,
+        indent=2,
+        ensure_ascii=False
+    )
+)
