@@ -132,11 +132,9 @@ IMPORTANT RULES:
 - Make the proposal specific to the current RFP without fabricating details.
 
 CURRENT RFP:
-
 {rfp}
 
 HISTORICAL MEMORIES:
-
 {memories}
 
 Generate the proposal using the following structure:
