@@ -1,7 +1,9 @@
 import os
-
-from groq import Groq
+from dotenv import load_dotenv
+from openai import OpenAI
 from .memory import ProposalMemory
+
+load_dotenv()
 
 
 class ProposalAgent:
@@ -9,11 +11,20 @@ class ProposalAgent:
     def __init__(self):
         self.memory = ProposalMemory()
 
-        self.llm = Groq(
-            api_key=os.environ["GROQ_API_KEY"]
+        api_key = os.getenv("OPENROUTER_API_KEY")
+
+        if not api_key:
+            raise ValueError(
+                "OPENROUTER_API_KEY is missing. "
+                "Check your .env file."
+            )
+
+        self.llm = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
         )
 
-        self.model = "openai/gpt-oss-20b"
+        self.model = "openrouter/free"
 
     def analyze_rfp(self, rfp_text):
         """Retrieve relevant previous proposal experience."""
