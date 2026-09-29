@@ -2,19 +2,24 @@ import streamlit as st
 
 from pdf_processor import extract_text
 from rfp_analyzer import analyze_rfp
-from agent import generate_memory_queries, generate_recommendations
+from agent import (
+    generate_memory_queries,
+    generate_recommendations,
+    call_openrouter,
+)
 from proposal_generator import generate_proposal
 from app.memory import ProposalMemory
 
 
 st.title("RFP Analyzer")
 
-st.write("Upload an RFP PDF to analyze it.")
+st.write("Upload an RFP PDF to analyze it and generate a proposal.")
 
 pdf_file = st.file_uploader(
     "Upload your RFP",
     type=["pdf"]
 )
+
 
 if pdf_file:
 
@@ -25,54 +30,51 @@ if pdf_file:
 
     if st.button("Analyze RFP"):
 
+        # -------------------------------------------------
+        # STEP 1 — Analyze RFP
+        # -------------------------------------------------
+
         with st.spinner("Analyzing RFP..."):
-
-            # ---------------------------------------
-            # STEP 1: Analyze RFP
-            # ---------------------------------------
-
-            result = analyze_rfp(text)
+            rfp_analysis = analyze_rfp(text)
 
         st.subheader("RFP Analysis")
-        st.write(result)
+        st.write(rfp_analysis)
 
-        # ---------------------------------------
-        # STEP 2: Generate memory queries
-        # ---------------------------------------
+        # -------------------------------------------------
+        # STEP 2 — Generate memory queries
+        # -------------------------------------------------
 
-        with st.spinner("Searching previous proposals..."):
-
-            queries = generate_memory_queries(result)
+        with st.spinner("Generating memory queries..."):
+            memory_queries = generate_memory_queries(rfp_analysis)
 
         st.subheader("Memory Queries")
 
-        for i, query in enumerate(queries, start=1):
+        for i, query in enumerate(memory_queries, start=1):
             st.write(f"{i}. {query}")
 
-        # ---------------------------------------
-        # STEP 3: Retrieve Hindsight memories
-        # ---------------------------------------
+        # -------------------------------------------------
+        # STEP 3 — Retrieve Hindsight memories
+        # -------------------------------------------------
 
-        memory = ProposalMemory()
+        with st.spinner("Retrieving historical memories..."):
 
-        all_memories = []
+            memory = ProposalMemory()
 
-        try:
+            all_memories = []
 
-            for query in queries:
+            try:
+                for query in memory_queries:
 
-                results = memory.recall(query)
+                    recall_result = memory.recall(query)
 
-                for item in results:
+                    for item in recall_result.results:
+                        all_memories.append({
+                            "query": query,
+                            "memory": item.text
+                        })
 
-                    all_memories.append({
-                        "query": query,
-                        "memory": item.text
-                    })
-
-        finally:
-
-            memory.close()
+            finally:
+                memory.close()
 
         st.subheader("Retrieved Memories")
 
@@ -87,33 +89,33 @@ if pdf_file:
 
             st.info("No relevant previous memories were found.")
 
-        # ---------------------------------------
-        # STEP 4: Generate recommendations
-        # ---------------------------------------
+        # -------------------------------------------------
+        # STEP 4 — Generate recommendations
+        # -------------------------------------------------
 
         with st.spinner("Generating recommendations..."):
 
             recommendations = generate_recommendations(
-                result,
+                rfp_analysis,
                 all_memories
             )
 
         st.subheader("Recommendations")
-
         st.json(recommendations)
-        # ---------------------------------------
-        # STEP 5: Generate final proposal
-        # ---------------------------------------
+
+        # -------------------------------------------------
+        # STEP 5 — Generate final proposal
+        # -------------------------------------------------
 
         with st.spinner("Generating final proposal..."):
 
             proposal_result = generate_proposal(
-                result,
-                all_memories,
-                lambda prompt: __import__("agent").call_openrouter(prompt)
+                rfp=text,
+                memories=all_memories,
+                llm_function=call_openrouter
             )
 
-        st.subheader("Generated Proposal")
+        st.subheader("Final Proposal")
 
         st.write(proposal_result["proposal"])
 
