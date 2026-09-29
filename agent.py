@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 
 from dotenv import load_dotenv
@@ -36,27 +37,180 @@ MODEL_NAME = "openrouter/free"
 
 
 # ---------------------------------------------------------
-# Clean JSON response
+# Clean model response
 # ---------------------------------------------------------
 
 def clean_json_response(text):
-    """Remove markdown code fences from the model response."""
+    """
+    Clean an LLM response before JSON parsing.
+
+    Handles:
+    - empty responses
+    - ```json ... ``` code fences
+    - ``` ... ``` code fences
+    - surrounding whitespace
+    """
+
+    if text is None:
+        raise ValueError("Model returned an empty response.")
+
+    text = str(text).strip()
 
     if not text:
         raise ValueError("Model returned an empty response.")
 
-    text = text.strip()
+    # Remove opening Markdown code fence.
+    text = re.sub(
+        r"^\s*```(?:json)?\s*",
+        "",
+        text,
+        flags=re.IGNORECASE
+    )
 
-    if text.startswith("```json"):
-        text = text[len("```json"):].strip()
+    # Remove closing Markdown code fence.
+    text = re.sub(
+        r"\s*```\s*$",
+        "",
+        text
+    )
 
-    elif text.startswith("```"):
-        text = text[len("```"):].strip()
+    return text.strip()
 
-    if text.endswith("```"):
-        text = text[:-3].strip()
 
-    return text
+# ---------------------------------------------------------
+# Extract JSON array
+# ---------------------------------------------------------
+
+def extract_json_array(text):
+    """
+    Extract a JSON array from an LLM response.
+
+    Examples of accepted responses:
+
+    ["query one", "query two"]
+
+    ```json
+    ["query one", "query two"]
+    ```
+
+    Here are the queries:
+    ["query one", "query two"]
+    """
+
+    cleaned = clean_json_response(text)
+
+    # -----------------------------------------------------
+    # Attempt 1: entire response is JSON
+    # -----------------------------------------------------
+
+    try:
+        parsed = json.loads(cleaned)
+
+        if isinstance(parsed, list):
+            return parsed
+
+    except json.JSONDecodeError:
+        pass
+
+    # -----------------------------------------------------
+    # Attempt 2: find JSON array inside extra text
+    # -----------------------------------------------------
+
+    start = cleaned.find("[")
+
+    if start != -1:
+        # Try progressively smaller endings.
+        for end in range(len(cleaned), start, -1):
+            candidate = cleaned[start:end].strip()
+
+            if not candidate.endswith("]"):
+                continue
+
+            try:
+                parsed = json.loads(candidate)
+
+                if isinstance(parsed, list):
+                    return parsed
+
+            except json.JSONDecodeError:
+                continue
+
+    # -----------------------------------------------------
+    # Failed
+    # -----------------------------------------------------
+
+    raise ValueError(
+        "Could not extract a valid JSON array from model response.\n\n"
+        f"Raw model response:\n{cleaned}"
+    )
+
+
+# ---------------------------------------------------------
+# Extract JSON object
+# ---------------------------------------------------------
+
+def extract_json_object(text):
+    """
+    Extract a JSON object from an LLM response.
+
+    Examples:
+
+    {"key": "value"}
+
+    ```json
+    {"key": "value"}
+    ```
+
+    Here is the result:
+    {"key": "value"}
+    """
+
+    cleaned = clean_json_response(text)
+
+    # -----------------------------------------------------
+    # Attempt 1: entire response is JSON
+    # -----------------------------------------------------
+
+    try:
+        parsed = json.loads(cleaned)
+
+        if isinstance(parsed, dict):
+            return parsed
+
+    except json.JSONDecodeError:
+        pass
+
+    # -----------------------------------------------------
+    # Attempt 2: find JSON object inside extra text
+    # -----------------------------------------------------
+
+    start = cleaned.find("{")
+
+    if start != -1:
+        # Try progressively smaller endings.
+        for end in range(len(cleaned), start, -1):
+            candidate = cleaned[start:end].strip()
+
+            if not candidate.endswith("}"):
+                continue
+
+            try:
+                parsed = json.loads(candidate)
+
+                if isinstance(parsed, dict):
+                    return parsed
+
+            except json.JSONDecodeError:
+                continue
+
+    # -----------------------------------------------------
+    # Failed
+    # -----------------------------------------------------
+
+    raise ValueError(
+        "Could not extract a valid JSON object from model response.\n\n"
+        f"Raw model response:\n{cleaned}"
+    )
 
 
 # ---------------------------------------------------------
@@ -64,7 +218,9 @@ def clean_json_response(text):
 # ---------------------------------------------------------
 
 def call_openrouter(prompt, max_attempts=3):
-    """Send a prompt to OpenRouter with simple retry handling."""
+    """
+    Send a prompt to OpenRouter with retry handling.
+    """
 
     for attempt in range(max_attempts):
 
@@ -81,10 +237,23 @@ def call_openrouter(prompt, max_attempts=3):
                 temperature=0.2
             )
 
+            # -------------------------------------------------
+            # Validate response
+            # -------------------------------------------------
+
             if not response.choices:
-                raise ValueError("OpenRouter returned no choices.")
+                raise ValueError(
+                    "OpenRouter returned no choices."
+                )
 
             content = response.choices[0].message.content
+
+            if content is None:
+                raise ValueError(
+                    "OpenRouter returned an empty response."
+                )
+
+            content = str(content).strip()
 
             if not content:
                 raise ValueError(
@@ -99,11 +268,26 @@ def call_openrouter(prompt, max_attempts=3):
                 raise
 
             print(
-                f"OpenRouter request failed. "
-                f"Retrying in 5 seconds ({attempt + 1}/{max_attempts})..."
+                f"\nOpenRouter request failed: {e}\n"
+                f"Retrying in 5 seconds "
+                f"({attempt + 1}/{max_attempts})..."
             )
 
             time.sleep(5)
+
+
+# ---------------------------------------------------------
+# Fallback memory queries
+# ---------------------------------------------------------
+
+def get_fallback_memory_queries():
+
+    return [
+        "previous proposals for the same client",
+        "successful proposals for similar projects",
+        "unsuccessful proposals and lessons learned",
+        "similar technical requirements and implementation approaches"
+    ]
 
 
 # ---------------------------------------------------------
@@ -118,28 +302,51 @@ def generate_memory_queries(rfp_analysis):
 
     response_text = call_openrouter(prompt)
 
-    cleaned_text = clean_json_response(response_text)
+    print("\n===== MEMORY QUERY MODEL RESPONSE =====")
+    print(response_text)
+    print("=======================================\n")
 
     try:
 
-        queries = json.loads(cleaned_text)
+        queries = extract_json_array(response_text)
 
-    except json.JSONDecodeError as e:
+    except ValueError as e:
 
-        print("\nModel returned invalid JSON:")
-        print(cleaned_text)
+        print("\nModel returned invalid JSON.")
+        print(f"Reason: {e}")
 
-        raise ValueError(
-            "Could not parse memory queries as JSON."
-        ) from e
+        print("\nUsing fallback memory queries.")
 
-    if not isinstance(queries, list):
+        queries = get_fallback_memory_queries()
 
-        raise ValueError(
-            "Memory queries response must be a JSON array."
+    # -----------------------------------------------------
+    # Keep only non-empty strings
+    # -----------------------------------------------------
+
+    cleaned_queries = []
+
+    for query in queries:
+
+        if isinstance(query, str):
+
+            query = query.strip()
+
+            if query:
+                cleaned_queries.append(query)
+
+    # -----------------------------------------------------
+    # If model returned an empty array
+    # -----------------------------------------------------
+
+    if not cleaned_queries:
+
+        print(
+            "Model returned no usable memory queries."
         )
 
-    return queries
+        cleaned_queries = get_fallback_memory_queries()
+
+    return cleaned_queries
 
 
 # ---------------------------------------------------------
@@ -159,16 +366,20 @@ def generate_recommendations(rfp_analysis, memories):
 
     response_text = call_openrouter(prompt)
 
-    cleaned_text = clean_json_response(response_text)
+    print("\n===== RECOMMENDATION MODEL RESPONSE =====")
+    print(response_text)
+    print("=========================================\n")
 
     try:
 
-        recommendations = json.loads(cleaned_text)
+        recommendations = extract_json_object(
+            response_text
+        )
 
-    except json.JSONDecodeError as e:
+    except ValueError as e:
 
-        print("\nModel returned invalid JSON:")
-        print(cleaned_text)
+        print("\nModel returned invalid JSON.")
+        print(f"Reason: {e}")
 
         raise ValueError(
             "Could not parse recommendations as JSON."
