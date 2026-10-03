@@ -10,6 +10,9 @@ class ProposalMemory:
 
         api_key=os.getenv("HINDSIGHT_API_KEY")
 
+        print("HINDSIGHT_URL:",base_url)
+        print("HINDSIGHT_API_KEY exists:",bool(api_key))
+
         self.client=Hindsight(
             base_url=base_url,
             api_key=api_key
