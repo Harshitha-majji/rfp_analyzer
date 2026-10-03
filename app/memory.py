@@ -8,7 +8,7 @@ class ProposalMemory:
             "http://localhost:8888"
         )
 
-        api_key=os.getenv("hsk_a91211f1ee7bbf3e72a4bde4e43acfa8_a16064863253b394")
+        api_key=os.getenv("HINDSIGHT_API_KEY")
 
         self.client=Hindsight(
             base_url=base_url,
